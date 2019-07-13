@@ -2,6 +2,9 @@
  /* Find my other courses on : http://csepracticals.wixsite.com/csepracticals
  * at great discounts and offers */
 
+/*This program demonstate how user-space program can send multiple
+ * Netlink Msgs to kernel module as one single unified msg*/
+
 #include <sys/socket.h>
 #include <linux/netlink.h>
 #include <stdlib.h>
@@ -25,7 +28,7 @@ typedef enum {
 int main() {
 
     int rc = 0;
-    boolean reply_requested;
+    boolean reply_requested = FALSE;
     /* While sending msg to kernel, we will have to specify src address and dest address
      * in struct sockaddr_nl structure. Src address shall be this application, and Destination
      * adddress shall be kernel */
@@ -34,7 +37,8 @@ int main() {
 
     /* Netlink msghdr for sending and recieving msgs*/
     struct nlmsghdr *nlh = NULL, 
-                    *nlh_recv = NULL;
+                    *nlh_recv = NULL,
+                    *nlh_temp = NULL;
 
     struct iovec iov;             /* iovector - will explain later, for now just understand it is a conatiner of nlmsghdr*/
                                   /* So, notice we go through the example, iovec is a container of nlmsghdr, struct msghdr is 
@@ -95,26 +99,44 @@ int main() {
     /* now, we need to send a Netlink msg to Linux kernel Module.
      * We need to take a space for Netlink Msg Hdr followed by payload msg.
      */
-    nlh=(struct nlmsghdr *)calloc(1,
+    nlh=(struct nlmsghdr *)calloc(3,
             NLMSG_SPACE(MAX_PAYLOAD) + NLMSG_HDRLEN);   /*Always use the macro NLMSG_SPACE to calculate the size of Payload data. This macro will take care to do all necessary alignment*/
 
     /* Fill the netlink message header */
     nlh->nlmsg_len = NLMSG_SPACE(MAX_PAYLOAD) + NLMSG_HDRLEN; /* size of the msg including netlink header*/
     nlh->nlmsg_pid = getpid();                                /* Netlink Port id, should be unique to a process, good practice is to use process-id */
-    nlh->nlmsg_flags |= NLM_F_REQUEST;                         /* More about this Later*/
-    nlh->nlmsg_type = NLMSG_DONE;
+    nlh->nlmsg_flags |= NLM_F_MULTI;                         /* More about this Later*/
+    nlh->nlmsg_type = 0;
     nlh->nlmsg_seq = 1; 
 
     if(nlh->nlmsg_flags & NLM_F_REQUEST){
         reply_requested = TRUE;
     }
     /* Fill in the netlink message payload */
-    strcpy(NLMSG_DATA(nlh), "Hello you!");                  /*Copy the application data to Netlink payload space. Use macro NLMSG_DATA to get ptr to netlink payload data space*/
+    strcpy(NLMSG_DATA(nlh), "Hello you!, This is msg 1 of multipart msg");                  /*Copy the application data to Netlink payload space. Use macro NLMSG_DATA to get ptr to netlink payload data space*/
+
+    nlh_temp = (char *)nlh + nlh->nlmsg_len;
+    nlh_temp->nlmsg_len = NLMSG_SPACE(MAX_PAYLOAD) + NLMSG_HDRLEN;
+    nlh_temp->nlmsg_pid = getpid(); 
+    nlh_temp->nlmsg_flags |= NLM_F_MULTI;
+    nlh_temp->nlmsg_type = 0;
+    nlh_temp->nlmsg_seq = 1;
+    strcpy(NLMSG_DATA(nlh_temp), "Hello you!, This is msg 2 of multipart msg");
+
+
+    nlh_temp = (char *)nlh_temp + nlh_temp->nlmsg_len;
+    nlh_temp = (char *)nlh_temp + nlh_temp->nlmsg_len;
+    nlh_temp->nlmsg_len = NLMSG_SPACE(MAX_PAYLOAD) + NLMSG_HDRLEN;
+    nlh_temp->nlmsg_pid = getpid(); 
+    nlh_temp->nlmsg_flags = 0;
+    nlh_temp->nlmsg_type = NLMSG_DONE;
+    nlh_temp->nlmsg_seq = 1;
+    strcpy(NLMSG_DATA(nlh_temp), "Hello you!, This is msg 3 of multipart msg");
 
     /*Now, wrap the data to be send inside iovec*/
 
     iov.iov_base = (void *)nlh;
-    iov.iov_len = nlh->nlmsg_len;
+    iov.iov_len = nlh->nlmsg_len * 3;           /*Total length of all Netlink msgs*/
 
     /*Now wrap the iovec inside the msghdr*/
     memset(&msg, 0, sizeof(struct msghdr));                  /*Always memset msghdr if it is local variable as it may contain garbage values*/
@@ -129,7 +151,6 @@ int main() {
 
     /*Now that we have successfully send the msg to Linux kernel, 
      * Now let us recv the reply from kernel*/
-
 
     if(reply_requested){
 

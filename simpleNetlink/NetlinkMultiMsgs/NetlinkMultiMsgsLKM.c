@@ -2,7 +2,7 @@
 /* Find my other courses on : http://csepracticals.wixsite.com/csepracticals
  * at great discounts and offers */
 
-/* Demo Hello World Linux Kernel Module written for 
+/* This Demo of Linux Kernel Module written for 
  * kernel 4.4.0-31-generic*/
 
 /* #include Minimum required header files to write a kernel
@@ -76,12 +76,7 @@ static struct sock *nl_sk = NULL;       /*Kernel space Netlink socket ptr*/
 static void netlink_recv_msg_fn(struct sk_buff *skb_in){
 
     struct nlmsghdr *nlh;
-    char *user_space_data;
     int user_space_data_len;
-    struct sk_buff *skb_out;
-    char kernel_reply[256];
-    int user_space_process_port_id;
-    int res;
 
     /*free the memory occupied by skb*/
     printk(KERN_INFO "%s() invoked", __FUNCTION__);
@@ -89,69 +84,27 @@ static void netlink_recv_msg_fn(struct sk_buff *skb_in){
     /*skb carries Netlink Msg which starts with Netlink Header*/
     nlh = (struct nlmsghdr*)(skb_in->data);
     
-    printk(KERN_INFO "%s(%d) : skb_in = %p, nlh = %p", __FUNCTION__, __LINE__, skb_in, nlh);
+    printk(KERN_INFO "%s(%d) : skb_in = %p, nlh = %p, skb_in->len = %u\n", 
+        __FUNCTION__, __LINE__, skb_in, nlh, skb_in->len);
    
-    nlmsg_dump(nlh);
-
-    user_space_process_port_id = nlh->nlmsg_pid;
-
-    printk(KERN_INFO "%s(%d) : port id of the sending user space process = %u\n", 
-            __FUNCTION__, __LINE__, user_space_process_port_id);
-
-    user_space_data = (char*)nlmsg_data(nlh);
     user_space_data_len = skb_in->len;
-    
-    printk(KERN_INFO "%s(%d) : msg recvd from user space= %s, msg_len = %d", 
-            __FUNCTION__, __LINE__, user_space_data, user_space_data_len);
-
-
-    if(nlh->nlmsg_flags & NLM_F_REQUEST){
-        /*Sending reply back to user space process*/
-        memset(kernel_reply, 0 , sizeof(kernel_reply));
-
-        /*defined in linux/kernel.h */
-        snprintf(kernel_reply, sizeof(kernel_reply), 
-                "Msg from Process %d has been processed", nlh->nlmsg_pid);
-
-        /*Get a new sk_buff with empty Netlink hdr already appended before payload space
-         * i.e skb_out->data will be pointer to below msg : 
-         *
-         * +----------+---------------+
-         * |Netlink Hdr|   payload    |
-         * ++---------+---------------+
-         *
-         * */
-
-        skb_out = nlmsg_new(sizeof(kernel_reply), 0/*Related to memory allocation, skip...*/);
-
-        /*Add a TLV*/ 
-        nlh = nlmsg_put(skb_out,
-                user_space_process_port_id, /*User space port id*/
-                nlh->nlmsg_seq,             /*reply with same Sequence no*/
-                NLMSG_DONE,                 /*Metlink Msg type*/
-                sizeof(kernel_reply),       /*Payload size*/
-                0);                         /*Flags*/
-
-        NETLINK_CB(skb_out).dst_group = 0; /* Kernel is sending this msg to only 1 process*/
-
-        /*copy the paylo d now*/
-        strncpy(nlmsg_data(nlh), kernel_reply, sizeof(kernel_reply));
-        //skb_get(skb_out ) ;
-        //skb_get(skb_out );
-
-        //printk(KERN_IN   "users count of skb_out = %d", atomic_read(&skb_out->users));
-        /*Finaly Send the  msg to user space space process*/
-        res = nlmsg_unicast(nl_sk, skb_out, user_space_process_port_id);
-        //printk(KERN_IN O "users count of skb_out = %d after first unicast", atomic_read(&skb_out->users));
-        //res = nlmsg_un cast(nl_sk, skb_out, user_space_process_port_id);
-        //printk(KERN_IN O "users count of skb_out = %d after second unicast", atomic_read(&skb_out->users));
-        //res = nlmsg_un cast(nl_sk, skb_out, user_space_process_port_id);
-
-        if(res < 0){     
-            printk(KERN_INFO "Error while sending the data back to user-space\n");
-            kfree_skb(skb_out); /*free the internal skb_data also*/
-        }                
+   
+    /*Loop over all Cadcaded Netlink Headers*/ 
+    for(nlh; 
+        ((NLMSG_OK(nlh, user_space_data_len)) && 
+        ((nlh->nlmsg_flags & NLM_F_MULTI) || 
+         nlh->nlmsg_type == NLMSG_DONE)); 
+        nlh = NLMSG_NEXT(nlh, user_space_data_len)) {
+        
+        nlmsg_dump(nlh);
+        printk(KERN_INFO "Netlink Data = %s\n", (char *)(NLMSG_DATA(nlh)));
+       
+        /*Netlink msg type set to NLMSG_DONE should the last Netlink
+         * message in the unified buffer*/ 
+        if(nlh->nlmsg_type == NLMSG_DONE)
+            break;
     }
+
     /* Free the Resources if any, no need to free skb_out, nlmsg_unicast consumes
      * skb_out itself */
 }
@@ -168,12 +121,12 @@ static struct netlink_kernel_cfg cfg = {
 };                   
                      
 /*Init function of this kernel Module*/
-static int __init NetlinkHelloWorld_init(void) {
+static int __init NetlinkMultiMsgs_init(void) {
     
     /* All printk output would appear in /var/log/kern.log file
      * use cmd ->  tail -f /var/log/kern.log in separate terminal 
      * window to see output*/
-	printk(KERN_INFO "Hello Kernel, I am kernel Module NetlinkHelloWorldLKM.ko\n");
+	printk(KERN_INFO "Hello Kernel, I am kernel Module NetlinkMultiMsgsLKM.ko\n");
    
     /* Now Create a Netlink Socket in kernel space*/
     /* Arguments : 
@@ -197,9 +150,9 @@ static int __init NetlinkHelloWorld_init(void) {
 }
 
 /*Exit function of this kernel Module*/
-static void __exit NetlinkHelloWorld_exit(void) {
+static void __exit NetlinkMultiMsgs_exit(void) {
 
-	printk(KERN_INFO "Bye Bye. Exiting kernel Module NetlinkHelloWorldLKM.ko \n");
+	printk(KERN_INFO "Bye Bye. Exiting kernel Module NetlinkMultiMsgsLKM.ko \n");
     /*Release any kernel resources held by this module in this fn*/
     netlink_kernel_release(nl_sk);
     nl_sk = NULL;
@@ -213,12 +166,13 @@ static void __exit NetlinkHelloWorld_exit(void) {
  * Whenever the Module is inserted into kernel using
  * insmod cmd, below function is triggered. You can do
  * all initializations here*/
-module_init(NetlinkHelloWorld_init); 
+module_init(NetlinkMultiMsgs_init); 
 
 /* Registration of Kernel Module Exit Function.
  * Whenever the Module is removed from kernel using
  * rmmod cmd, below function is triggered. You can do
  * cleanup in this function.*/
-module_exit(NetlinkHelloWorld_exit);
+module_exit(NetlinkMultiMsgs_exit);
 
 MODULE_LICENSE("GPL");
+MODULE_AUTHOR("Abhishek Sagar");
