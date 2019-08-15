@@ -1,0 +1,10 @@
+Online Source Code :
+https://elixir.bootlin.com/linux/v4.4.31/source/include/linux
+
+Download Kernel Course Code :
+https://www.kernel.org/
+We have downloaded 4.4.189 (the closest match to us)
+
+To uncompress :
+unxz linux-4.4.189.tar.xz
+tar -xvf linux-4.4.189.tar
