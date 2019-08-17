@@ -144,15 +144,16 @@ static struct netlink_kernel_cfg cfg = {
     .input = netlink_recv_msg_fn, /*This fn would recieve msgs from userspace for
                                     Netlink protocol no 31*/
     .groups = 0,                   /*This Kernel Module has not joined any multicast group*/
+    .flags = 0,
 };                   
                      
 /*Init function of this kernel Module*/
-static int __init NetlinkMultiMsgs_init(void) {
+static int __init NetlinkMultiCasts_init(void) {
     
     /* All printk output would appear in /var/log/kern.log file
      * use cmd ->  tail -f /var/log/kern.log in separate terminal 
      * window to see output*/
-	printk(KERN_INFO "Hello Kernel, I am kernel Module NetlinkMultiMsgsLKM.ko\n");
+	printk(KERN_INFO "Hello Kernel, I am kernel Module NetlinkMultiCastsLKM.ko\n");
    
     /* Now Create a Netlink Socket in kernel space*/
     /* Arguments : 
@@ -162,6 +163,9 @@ static int __init NetlinkMultiMsgs_init(void) {
      * Netlink Socket Configuration Data 
      * */ 
      
+     cfg.flags |= NL_CFG_F_NONROOT_RECV;    /*Allow a non-root user space process to bind to a multicast Group and hence become eligible to recv multicast msgs*/
+     cfg.flags |= NL_CFG_F_NONROOT_SEND;    /*Allow a non-root user space process to send multicast msgs*/
+
      /*Now create a Netlink socket*/
      nl_sk = netlink_kernel_create(&init_net, NETLINK_TEST_PROTOCOL, &cfg);
      
@@ -171,14 +175,16 @@ static int __init NetlinkMultiMsgs_init(void) {
      }
      
      printk(KERN_INFO "Netlink Socket Created Successfully");
+
+
     /*This fn must return 0 for module to successfully make its way into kernel*/
 	return 0;
 }
 
 /*Exit function of this kernel Module*/
-static void __exit NetlinkMultiMsgs_exit(void) {
+static void __exit NetlinkMultiCasts_exit(void) {
 
-	printk(KERN_INFO "Bye Bye. Exiting kernel Module NetlinkMultiMsgsLKM.ko \n");
+	printk(KERN_INFO "Bye Bye. Exiting kernel Module NetlinkMultiCastsLKM.ko \n");
     /*Release any kernel resources held by this module in this fn*/
     netlink_kernel_release(nl_sk);
     nl_sk = NULL;
@@ -192,13 +198,13 @@ static void __exit NetlinkMultiMsgs_exit(void) {
  * Whenever the Module is inserted into kernel using
  * insmod cmd, below function is triggered. You can do
  * all initializations here*/
-module_init(NetlinkMultiMsgs_init); 
+module_init(NetlinkMultiCasts_init); 
 
 /* Registration of Kernel Module Exit Function.
  * Whenever the Module is removed from kernel using
  * rmmod cmd, below function is triggered. You can do
  * cleanup in this function.*/
-module_exit(NetlinkMultiMsgs_exit);
+module_exit(NetlinkMultiCasts_exit);
 
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("Abhishek Sagar");

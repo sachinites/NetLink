@@ -1,0 +1,25 @@
+Receiving routing table updates from kernel over netlink :
+============================================================
+https://stackoverflow.com/questions/11788326/extract-current-route-from-netlink-message-code-attached
+
+A file implementing many functions of netlink route, we can refer to this file for help :
+=========================================================================================
+https://www.arl.wustl.edu/~jdd/NDN/NDN/OSPFN/zebra/rt_netlink.c
+
+Getting a Routing Table Dump:
+========================================================================================
+http://olegkutkov.me/2019/03/24/getting-linux-routing-table-using-netlink/
+
+Working with Links and get notification about various events from kernel over netlink:
+=======================================================================================
+http://olegkutkov.me/2018/02/14/monitoring-linux-networking-state-using-netlink/
+
+A good Tutorial on How Logging Works, A Candidate of system programming mini project :
+================================================================
+http://olegkutkov.me/2019/03/25/simple-logger-with-stdout-files-and-syslog-support-for-c-projects-in-linux/
+
+Another Good Tutorial on Netlink - All Netlink Msg types and Flags in one place :
+===================================================================================
+http://maz-programmersdiary.blogspot.com/2011/09/netlink-sockets.html
+
+
